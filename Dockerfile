@@ -6,6 +6,8 @@ ENV SBT_VERSION 0.13.13
 RUN apk upgrade --update && apk update --update && apk add --update --no-cache python curl wget tar bash
 RUN wget -O- "https://bootstrap.pypa.io/get-pip.py" | python
 RUN pip install awscli
+RUN apk add --update --no-cache nodejs
+RUN npm install npm install -g typescript
 
 # Java Version and other ENV
 ENV JAVA_VERSION_MAJOR=8 \
