@@ -3,7 +3,7 @@ FROM docker:17.03-git
 ENV SBT_VERSION 0.13.13
 
 # Install AWS CLI
-RUN apk update && apk add --update python wget tar bash
+RUN apk upgrade --update && apk update --update && apk add --update --no-cache python curl wget tar bash
 RUN wget -O- "https://bootstrap.pypa.io/get-pip.py" | python
 RUN pip install awscli
 
@@ -28,8 +28,7 @@ ENV JAVA_VERSION_MAJOR=8 \
 
 # do all in one step
 RUN set -ex && \
-    apk upgrade --update && \
-    apk add --update libstdc++ curl ca-certificates bash && \
+    apk add --update --no-cache libstdc++ curl ca-certificates bash && \
     for pkg in glibc-${GLIBC_VERSION} glibc-bin-${GLIBC_VERSION} glibc-i18n-${GLIBC_VERSION}; do curl -sSL https://github.com/andyshinn/alpine-pkg-glibc/releases/download/${GLIBC_VERSION}/${pkg}.apk -o /tmp/${pkg}.apk; done && \
     apk add --allow-untrusted /tmp/*.apk && \
     rm -v /tmp/*.apk && \
@@ -85,9 +84,8 @@ RUN set -ex && \
 
 # Install SBT
 RUN wget -O- "http://dl.bintray.com/sbt/native-packages/sbt/$SBT_VERSION/sbt-$SBT_VERSION.tgz" \
-    |  tar xzf - -C /usr/local --strip-components=1 \
-    && sbt exit
-# Clean up
-RUN apk del --no-cache .dependencies
+    |  tar xzf - -C /usr/local --strip-components=1 && \
+    sbt exit && \
+    apk del wget tar
 
 # EOF
