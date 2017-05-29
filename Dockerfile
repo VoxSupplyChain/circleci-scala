@@ -7,7 +7,7 @@ RUN apk upgrade --update && apk update --update && apk add --update --no-cache p
 RUN wget -O- "https://bootstrap.pypa.io/get-pip.py" | python
 RUN pip install awscli
 RUN apk add --update --no-cache nodejs
-RUN npm install npm install -g typescript sass
+RUN npm install -g typescript node-sass
 
 # Java Version and other ENV
 ENV JAVA_VERSION_MAJOR=8 \
