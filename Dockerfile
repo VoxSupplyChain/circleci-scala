@@ -1,6 +1,6 @@
 FROM docker:17.03-git
 
-ENV SBT_VERSION 0.13.13
+ENV SBT_VERSION 0.13.15
 
 # Install AWS CLI
 RUN apk upgrade --update && apk update --update && apk add --update --no-cache python curl wget tar bash
