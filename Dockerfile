@@ -87,7 +87,6 @@ RUN set -ex && \
 # Install SBT
 RUN wget -O- "http://dl.bintray.com/sbt/native-packages/sbt/$SBT_VERSION/sbt-$SBT_VERSION.tgz" \
     |  tar xzf - -C /usr/local --strip-components=1 && \
-    sbt exit && \
-    apk del wget tar
+    sbt exit 
 
 # EOF
