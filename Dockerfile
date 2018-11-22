@@ -1,6 +1,6 @@
 FROM docker:17.03-git
 
-ENV SBT_VERSION 0.13.15
+ENV SBT_VERSION 1.1.0
 
 # Install AWS CLI
 RUN apk upgrade --update && apk update --update && apk add --update --no-cache python curl wget tar bash
@@ -85,8 +85,8 @@ RUN set -ex && \
     echo 'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4' >> /etc/nsswitch.conf
 
 # Install SBT
-RUN wget -O- "http://dl.bintray.com/sbt/native-packages/sbt/$SBT_VERSION/sbt-$SBT_VERSION.tgz" \
+RUN wget -O- "https://piccolo.link/sbt-$SBT_VERSION.tgz" \
     |  tar xzf - -C /usr/local --strip-components=1 && \
-    sbt exit 
+    sbt exit
 
 # EOF
