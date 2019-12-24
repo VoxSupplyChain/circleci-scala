@@ -1,54 +1,66 @@
-FROM docker:17.03-git
+FROM docker:19.03.5-git
 
-ENV SBT_VERSION 1.1.0
+# The CircleCi builds will run in the Docker image built from this Dockerfile. To build a new image:
+# 0. authenticate and assume role in shared account
+# 1. docker build -t 931175591414.dkr.ecr.eu-west-1.amazonaws.com/circleci-scala:<VERSION> \
+#    --build-arg GITHUB_OAUTH_TOKEN=<YOUR_TOKEN> --build-arg NEXUS_READER_PASSWORD=<reader_password> .
+# 2. eval "$(aws ecr get-login --region eu-west-1 --no-include-email)"
+# 3. docker push 931175591414.dkr.ecr.eu-west-1.amazonaws.com/circleci-scala:<VERSION>
+# 4. Update the image setting in config.yml to your new VERSION.
+
+# You must set a GitHub personal access token as a build arg. This will be used to access the private gruntwork-io
+# GitHub repos
+ARG GITHUB_OAUTH_TOKEN
+RUN if [ -z "$GITHUB_OAUTH_TOKEN" ]; then echo "ERROR: You must set GITHUB_OAUTH_TOKEN as a Docker build arg."; exit 1; fi
+
+# You must set the Tundra Nexus reader password to be able to download the required java installation binaries
+ARG NEXUS_READER_PASSWORD
+RUN if [ -z "$NEXUS_READER_PASSWORD" ]; then echo "ERROR: You must set NEXUS_READER_PASSWORD as a Docker build arg."; exit 1; fi
+
+ENV SHELL /bin/bash
+ENV SBT_VERSION 1.2.8
+ENV LANG=C.UTF-8
 
 # Install AWS CLI
-RUN apk upgrade --update && apk update --update && apk add --update --no-cache python curl wget tar bash
-RUN wget -O- "https://bootstrap.pypa.io/get-pip.py" | python
-RUN pip install awscli
-RUN apk add --update --no-cache nodejs
+RUN apk upgrade --update && apk update --update && apk add --update --no-cache curl tar python3
+# symlink python3 to python because check-ecs-service-deployment uses it as the interpreter
+RUN ln -sf /usr/bin/python3 /usr/bin/python
+RUN pip3 install --no-cache awscli
+RUN apk add --update --no-cache nodejs nodejs-npm
+
+# To handle 'not get uid/gid' on alpine linux
+RUN npm config set unsafe-perm true
 RUN npm install -g typescript node-sass
 
 # Java Version and other ENV
 ENV JAVA_VERSION_MAJOR=8 \
-    JAVA_VERSION_MINOR=92 \
-    JAVA_VERSION_BUILD=14 \
+    JAVA_VERSION_MINOR=181 \
+    JAVA_VERSION_BUILD=13 \
     JAVA_PACKAGE=jdk \
     JAVA_HOME=/opt/jdk \
-    PATH=${PATH}:/opt/jdk/bin \
-    LANG=C.UTF-8
-# Java Version and other ENV
-ENV JAVA_VERSION_MAJOR=8 \
-    JAVA_VERSION_MINOR=131 \
-    JAVA_VERSION_BUILD=11 \
-    JAVA_PACKAGE=jdk \
-    JAVA_JCE=standard \
-    JAVA_HOME=/opt/jdk \
-    PATH=${PATH}:/opt/jdk/bin \
-    GLIBC_VERSION=2.23-r3 \
-    LANG=C.UTF-8
+    GLIBC_VERSION=2.23-r3
 
-# do all in one step
+ENV PATH=/opt/jdk/bin:${PATH}
+
+# do it in several step
 RUN set -ex && \
-    apk add --update --no-cache libstdc++ curl ca-certificates bash && \
+    apk add --update libstdc++ curl ca-certificates && \
     for pkg in glibc-${GLIBC_VERSION} glibc-bin-${GLIBC_VERSION} glibc-i18n-${GLIBC_VERSION}; do curl -sSL https://github.com/andyshinn/alpine-pkg-glibc/releases/download/${GLIBC_VERSION}/${pkg}.apk -o /tmp/${pkg}.apk; done && \
     apk add --allow-untrusted /tmp/*.apk && \
     rm -v /tmp/*.apk && \
-    ( /usr/glibc-compat/bin/localedef --force --inputfile POSIX --charmap UTF-8 C.UTF-8 || true ) && \
+    ( /usr/glibc-compat/bin/localedef -i en_US -f UTF-8 C.UTF-8 || true ) && \
     echo "export LANG=C.UTF-8" > /etc/profile.d/locale.sh && \
     /usr/glibc-compat/sbin/ldconfig /lib /usr/glibc-compat/lib && \
-    mkdir /opt && \
-    curl -jksSLH "Cookie: oraclelicense=accept-securebackup-cookie" -o /tmp/java.tar.gz \
-      http://download.oracle.com/otn-pub/java/jdk/${JAVA_VERSION_MAJOR}u${JAVA_VERSION_MINOR}-b${JAVA_VERSION_BUILD}/d54c1d3a095b4ff2b6607d096fa80163/${JAVA_PACKAGE}-${JAVA_VERSION_MAJOR}u${JAVA_VERSION_MINOR}-linux-x64.tar.gz && \
-    gunzip /tmp/java.tar.gz && \
+    echo "Copying and Installing JAVA"
+
+# download from Tundra Nexus (version before the Oracle licence change April, 2019)
+RUN curl -SfL# -u reader:${NEXUS_READER_PASSWORD} -o /tmp/java.tar.gz \
+    https://nexus.tundra-shared.com/repository/raw-private/install/jdk/jdk-8u181-linux-x64.tar.gz
+
+RUN gunzip /tmp/java.tar.gz && \
     tar -C /opt -xf /tmp/java.tar && \
     ln -s /opt/jdk1.${JAVA_VERSION_MAJOR}.0_${JAVA_VERSION_MINOR} /opt/jdk && \
-    if [ "${JAVA_JCE}" == "unlimited" ]; then echo "Installing Unlimited JCE policy" >&2 && \
-      curl -jksSLH "Cookie: oraclelicense=accept-securebackup-cookie" -o /tmp/jce_policy-${JAVA_VERSION_MAJOR}.zip \
-        http://download.oracle.com/otn-pub/java/jce/${JAVA_VERSION_MAJOR}/jce_policy-${JAVA_VERSION_MAJOR}.zip && \
-      cd /tmp && unzip /tmp/jce_policy-${JAVA_VERSION_MAJOR}.zip && \
-      cp -v /tmp/UnlimitedJCEPolicyJDK8/*.jar /opt/jdk/jre/lib/security; \
-    fi && \
+    ln -s /opt/jdk/bin/java /bin/java && \
     sed -i s/#networkaddress.cache.ttl=-1/networkaddress.cache.ttl=10/ $JAVA_HOME/jre/lib/security/java.security && \
     apk del glibc-i18n && \
     rm -rf /opt/jdk/*src.zip \
@@ -84,9 +96,9 @@ RUN set -ex && \
            /tmp/* /var/cache/apk/* && \
     echo 'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4' >> /etc/nsswitch.conf
 
+RUN apk add --update --no-cache bash unzip sudo
+
 # Install SBT
-RUN wget -O- "https://piccolo.link/sbt-$SBT_VERSION.tgz" \
+RUN curl -SsfL -o- "https://piccolo.link/sbt-$SBT_VERSION.tgz" \
     |  tar xzf - -C /usr/local --strip-components=1 && \
     sbt exit
-
-# EOF
