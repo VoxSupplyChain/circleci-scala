@@ -3,15 +3,10 @@ FROM docker:19.03.5-git
 # The CircleCi builds will run in the Docker image built from this Dockerfile. To build a new image:
 # 0. authenticate and assume role in shared account
 # 1. docker build -t 931175591414.dkr.ecr.eu-west-1.amazonaws.com/circleci-scala:<VERSION> \
-#    --build-arg GITHUB_OAUTH_TOKEN=<YOUR_TOKEN> --build-arg NEXUS_READER_PASSWORD=<reader_password> .
+#    --build-arg NEXUS_READER_PASSWORD=<reader_password> .
 # 2. eval "$(aws ecr get-login --region eu-west-1 --no-include-email)"
 # 3. docker push 931175591414.dkr.ecr.eu-west-1.amazonaws.com/circleci-scala:<VERSION>
 # 4. Update the image setting in config.yml to your new VERSION.
-
-# You must set a GitHub personal access token as a build arg. This will be used to access the private gruntwork-io
-# GitHub repos
-ARG GITHUB_OAUTH_TOKEN
-RUN if [ -z "$GITHUB_OAUTH_TOKEN" ]; then echo "ERROR: You must set GITHUB_OAUTH_TOKEN as a Docker build arg."; exit 1; fi
 
 # You must set the Tundra Nexus reader password to be able to download the required java installation binaries
 ARG NEXUS_READER_PASSWORD
